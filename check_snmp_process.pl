@@ -692,8 +692,7 @@ if (defined ($o_cpu) ) {
 	}
   }
 }
-
-$o_descr =~ s/\|/ or /g;
+$o_descr =~ s/\|/ or /g ;
 print $num_int_ok, " process ", (defined ($o_noreg)) ? "named " : "matching ", $o_descr, " ";
 
 #### Check for min and max number of process
