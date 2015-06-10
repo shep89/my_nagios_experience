@@ -523,32 +523,69 @@ local $SIG{ALRM} = sub {
 my $url = ($plugin->opts->secure_connection?'https':'http') . '://'
 		 .$plugin->opts->host_name.':'.$plugin->opts->port
 		 .$plugin->opts->status_path;
-print "Getting URL: $url\n" if $plugin->opts->verbose >= 2;
-my $user_agent = LWP::UserAgent->new;
-my $request = HTTP::Request->new( GET=> $url );
-$request->header('User-Agent' => 'check_apache/1.00');
-if($plugin->opts->username && $plugin->opts->password) {
-	$request->authorization_basic(
-		$plugin->opts->username,
-		$plugin->opts->password
-	);
-}
-my $response = $user_agent->request($request);
-if($plugin->opts->verbose >= 3) {
-	print "Server response:\n" . $response->as_string . "\n\n"
-}
+my $urlcache = $url;
+$urlcache =~ s/http|[:\/]//g;
+$urlcache = '/dev/shm/' . $urlcache;
+my $cache = '';
 
+if (-f $urlcache && time - (stat($urlcache))[9] < 50)
+{
+	open(my $h, '<', $urlcache) ;
+	binmode($h);
+	{
+	 local $/;
+	 $cache = <$h>;
+	}
+	close $h;
+}
+else{
+	print "Cache too old or doesnt exists\n" if $plugin->opts->verbose >= 2;
+	unlink($urlcache);
+}
+my $request;
+if (length ($cache)  < 5)
+{
+	print "Getting URL: $url\n" if $plugin->opts->verbose >= 2;
+	my $user_agent = LWP::UserAgent->new;
+	my $request = HTTP::Request->new( GET=> $url );
+	$request->header('User-Agent' => 'check_apache/1.00');
 
+	if($plugin->opts->username && $plugin->opts->password) {
+		$request->authorization_basic(
+			$plugin->opts->username,
+			$plugin->opts->password
+		);
+	}
+	my $response = $user_agent->request($request);
+	if($plugin->opts->verbose >= 3) {
+		print "Server response:\n" . $response->as_string . "\n\n"
+	}
+	my $response_summary = "Host returned HTTP code $response->{_rc}.";
+
+	unless($response && $response->{_rc} == 200){
+		$plugin->nagios_exit(UNKNOWN, $response_summary);
+	}
+	$cache = $response->as_string;
+	open(my $fh, '>', $urlcache);
+	print $fh $response->as_string;
+	close $fh;
+}
+## au20320 print "Server response:\n" . $response->as_string . "\n\n";
 ### Stop here unless the request came back OK
-my $response_summary = "Host returned HTTP code $response->{_rc}.";
-unless($response && $response->{_rc} == 200){
-	$plugin->nagios_exit(UNKNOWN, $response_summary);
+
+
+
+## Cache write
+if($plugin->opts->verbose >= 1) {
+	#print "Cache body " . $response->as_string . "\n\n";
+	print "Cache URL " . $urlcache . "\n\n";
 }
 
 
+#print "cached " . $text;
 ### Parse for what they're looking for
 my $value = $measurements{$plugin->opts->measurement}->{parser}
-			->($response->as_string);
+			->($cache);
 my $status_message = $plugin->opts->measurement . ' ' . $value
    . $measurements{$plugin->opts->measurement}->{unit_of_measurement};
 if($plugin->opts->verbose >=2) {
