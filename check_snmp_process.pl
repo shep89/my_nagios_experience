@@ -514,11 +514,12 @@ foreach my $key ( keys %$resultat) {
 }
 
 if ( $num_int == 0) {
+	$o_descr =~ s/\|/ or /g ;
    print "No process ",(defined ($o_noreg)) ? "named " : "matching ", $o_descr, " found : ";
-   if ($o_critL[0]>=0) {
+   if ($o_critL[0]>0) {
      print "CRITICAL\n";
      exit $ERRORS{"CRITICAL"};
-   } elsif ($o_warnL[0]>=0) {
+   } elsif ($o_warnL[0]>0) {
      print "WARNING\n";
 	 exit $ERRORS{"WARNING"};
    }
