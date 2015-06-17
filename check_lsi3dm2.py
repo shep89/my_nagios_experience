@@ -169,7 +169,7 @@ if (ret[0] == 0):
 	elif (statret == 0 and volret == 0 and diskret == 0):
 		exitcode = 0
 
-	print "{} {}; {}; {}|{} {} {}".format(ret[1], statout, volout, diskout, statperf, volperf, diskperf)
+	print "{} {}; {}; {}|{} {} {}".format(re.sub('\\..+', '', ret[1]), statout, volout, diskout, statperf, volperf, diskperf)
 
 else:
 	print "UNKNOWN {}".format(ret[1:])
