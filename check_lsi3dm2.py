@@ -2,6 +2,7 @@
 import requests
 import re
 import sys
+
 ar = {'-H' : '', '-P' : '888', '-u' : 'u', '-p': '3ware'}
 #========== functions ==================================================================#
 def GetFromWeb(useproxy=False): 
@@ -15,8 +16,8 @@ def GetFromWeb(useproxy=False):
 		proxies = {}
 	#uri = 'http://httpbin.org/post'
 	uri = base + 'login.html'
-	payload = {'whopwd': 'a',
-				'thepwd': '3ware',
+	payload = {'whopwd': ar['-u'],
+				'thepwd': ar['-p'],
 				'submit': 'Login'}
 	s = requests.Session()
 	try:
@@ -44,9 +45,24 @@ def GetFromWeb(useproxy=False):
 		r = s.get(uri, proxies=proxies, cookies=dict(TDMUSER=rcookies['TDMUSER']), verify=False)
 	except :
 		return -202, 'Error getting stats'
-		
+	stats = r.content
+	
+	uri = base + 'page1_1.html?c=0&u=-2'
+	try:
+		r = s.get(uri, proxies=proxies, cookies=dict(TDMUSER=rcookies['TDMUSER']), verify=False)
+	except :
+		return -202, 'Error getting volumes'
+	volumes = r.content
+	
+	uri = base + 'page1_2.html?c=0'
+	try:
+		r = s.get(uri, proxies=proxies, cookies=dict(TDMUSER=rcookies['TDMUSER']), verify=False)
+	except :
+		return -202, 'Error getting volumes'
+	disks = r.content
+	
 	if r.status_code == 200:
-		return 0, serv, re.findall('td[^>]+?tableheader".*?(?:><.+?>|>)(.+?)<', r.content), re.findall('td[^>]+?tabledata".*?(?:><.+?>|>)(.+?)<', r.content)
+		return 0, serv, stats, volumes, disks
 	else:
 		return -1, 'http error', r.status_code
 # }
@@ -65,13 +81,96 @@ def GetArgs():
 # }
 GetArgs()
 ret = GetFromWeb()
-exitcode = 3
 if (ret[0] == 0):
-	if (ret[3][4] == "OK"):
-		exitcode = 0
-	else:
+	prep = re.findall('td[^>]+?tabledata.*?(?:><.+?>|>)(.*?)<', ret[2])
+	stat = []
+	for i in range(0,len(prep), 6):
+		stat.append(prep[i:i+6])
+		#print prep[i:i+6]
+	#print stat
+	#print "==="
+
+	vol = []
+	prep = re.findall('td[^>]+?tabledata.*?(?:><.+?>|>)(.*?)<', ret[3])
+	for i in range(0,len(prep), 6):
+		vol.append(prep[i:i+5])
+		#print prep[i:i+5]
+	#print vol
+	#print "==="
+
+	disk = []
+	prep = re.findall('td[^>]+?tabledata.*?(?:><.+?>|>)(.*?)<', ret[4])
+	for i in range(0,len(prep), 9):
+		disk.append(prep[i:i+8])
+		#print prep[i:i+8]
+	#print disk
+
+	exitcode = 3
+
+
+	statret = 3
+	statout = ''
+	statperf = ''
+	ok = 0
+	for n in stat:
+		if (n[-1] == "OK" ):
+			ok += 1
+			if (statret == 3):
+				statret = 0
+		else:
+			statret = 2
+			statout += " " + n[1] + "("+ n[2] + ")"
+	if (statret == 0):
+		statout = "Controllers: OK"
+	statperf = 'ControllersNotOk=' + str(len(stat)-ok)
+	#print statout
+
+
+	volret = 3
+	volout = ''
+	volperf = ''
+	ok = 0
+	for n in vol:
+		if (n[-1] == "OK" ):
+			ok += 1
+			if (volret == 3):
+				volret = 0
+		else:
+			volret = 2
+			volout += " vol[{}] ({})".format(n[0], ', '.join(n[1:]))	
+
+	if (volret == 0):
+		volout = "Volumes: OK"
+	volperf = 'VolumesNotOk=' + str(len(vol)-ok)
+	#print volout
+
+
+	diskret = 3
+	diskout = ''
+	diskperf = ''
+	ok = 0
+	for n in disk:
+		if (n[-1] == "OK" ):
+			ok += 1
+			if (diskret == 3):
+				diskret = 0
+		else:
+			diskret = 2
+			diskout += " disk[{}] ({})".format(n[0], n[1], n[-1])
+		
+
+	if (diskret == 0):
+		diskout = "Disks: OK"
+	diskperf = 'DisksNotOk=' + str(len(disk)-ok)
+	#print diskout
+
+	if (statret == 2 or volret == 2 or diskret == 2):
 		exitcode = 2
-	print "{} - {} ({} {} {}, {} {}, {} {})".format(ret[3][4], ret[1], ret[3][0], ret[2][1], ret[3][1], ret[2][2], ret[3][2], ret[2][3], ret[3][3])
+	elif (statret == 0 and volret == 0 and diskret == 0):
+		exitcode = 0
+
+	print "{} {}; {}; {}|{} {} {}".format(ret[1], statout, volout, diskout, statperf, volperf, diskperf)
+
 else:
 	print "UNKNOWN {}".format(ret[1:])
 exit(exitcode)
