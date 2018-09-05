@@ -4,6 +4,10 @@ import re
 import sys
 
 ar = {'-H' : '', '-P' : '888', '-u' : 'u', '-p': '3ware'}
+proxy_user = 'user'
+proxy_password = 'password'
+proxy_host = 'host'
+proxy_port = 'port'
 #========== functions ==================================================================#
 def GetFromWeb(useproxy=False): 
 # {
@@ -11,7 +15,7 @@ def GetFromWeb(useproxy=False):
 	base = "https://{}:{}/".format( ar['-H'], ar['-P'] )
 	requests.packages.urllib3.disable_warnings()
 	if useproxy == True:
-		proxies = {"http": "http://au20320:as103200@138.21.89.90:3128/"}
+		proxies = {"http": "http://{}:{}@{}:{}/".format(proxy_user, proxy_password, proxy_host, proxy_port)}
 	else:
 		proxies = {}
 	#uri = 'http://httpbin.org/post'
@@ -27,7 +31,7 @@ def GetFromWeb(useproxy=False):
 	rcookies = r.cookies
 	#print len(rcookies)
 	uri = base + 'index.html'
-	#uri = "https://89.108.111.89:888/page0.html?c=0"
+	
 	try:
 		r = s.get(uri, proxies=proxies, verify=False)
 	except :
